@@ -77,7 +77,7 @@ const LS = {
 const DEF = { hp:0.2700, hc:0.2068, abo:15.65, hcStart:22, hcEnd:6, hcRatio:35 };
 let settings = Object.assign({}, DEF, LS.get('eh_settings', {}));
 let data = LS.get('eh_data', null);          // { 'YYYY-MM-DD': {hp, hc} }
-let demo = false, serverMode = false, serverUpdated = null;
+let demo = false, serverMode = false, serverUpdated = null, needLogin = false;
 let devices = LS.get('eh_devices', [
   {n:'Réfrigérateur', w:90,  h:24, hc:35},
   {n:'Ordinateur',    w:150, h:6,  hc:5},
@@ -285,7 +285,7 @@ views.reglages = () => `
     ${fld('hcStart','Début heures creuses (h)',settings.hcStart,1)}
     ${fld('hcEnd','Fin heures creuses (h)',settings.hcEnd,1)}
     ${fld('hcRatio','Part HC si relevé journalier simple (%)',settings.hcRatio,1)}
-  </div><div class="note" style="margin-top:8px">Valeurs par défaut indicatives : remplace-les par celles de ta facture (prix TTC). ${serverMode?'<b>Sur la tablette, les tarifs se règlent dans config.json</b> (ceux d\'ici sont écrasés au chargement).':''}</div></div>
+  </div><div class="note" style="margin-top:8px">Valeurs par défaut indicatives : remplace-les par celles de ta facture (prix TTC). ${serverMode?'<b>Les tarifs du site se règlent dans config.json du dépôt</b> (ceux d\'ici sont écrasés au chargement).':''}</div></div>
   <div class="card" style="margin-top:12px"><h2>Importer mes données Linky</h2>
   <p class="note" style="margin-top:0">Formats acceptés : <b>CSV</b> <code>date;hp;hc</code> (kWh, ex. <code>2026-11-14;5,2;3,1</code>) · <b>JSON Conso API</b> (<code>daily_consumption</code> ou <code>consumption_load_curve</code>, en Wh) · CSV <code>date;valeur</code> (Wh, courbe de charge ou journalier).</p>
   <div class="row"><input type="file" id="file" accept=".csv,.txt,.json"><button class="btn primary" id="imp">Importer</button>
@@ -338,7 +338,10 @@ function render(){
   if (!views[tab]) tab='accueil';
   document.getElementById('tabs').innerHTML = TABS.map(([id,l])=>`<button class="${id===tab?'on':''}" data-tab="${id}">${l}</button>`).join('');
   const banner = demo && tab!=='reglages' ? `<div class="banner">🧪 <b>Données de démonstration.</b> ${serverMode?'En attente des premiers relevés Linky (collecte automatique chaque matin).':'Importe tes relevés Linky dans <a href="#reglages">Réglages</a> pour voir tes vrais chiffres.'}</div>`:'';
-  document.getElementById('view').innerHTML = banner + views[tab]();
+  document.getElementById('view').innerHTML = needLogin
+    ? `<div class="card" style="max-width:380px;margin:30px auto"><h2>Accès privé</h2><p class="note" style="margin-top:0">Entre le code d'accès pour voir la consommation de la maison. Sans code, tu vois seulement des données de démonstration.</p>
+       <div class="row"><input type="password" id="code" placeholder="Code d'accès" autocomplete="current-password"><button class="btn primary" id="loginBtn">Entrer</button></div><div class="note" id="loginMsg"></div></div>`
+    : banner + views[tab]();
   document.getElementById('foot').textContent='Montants estimés, hors facture officielle.'+(serverUpdated?' Dernière récupération Linky : '+serverUpdated.replace('T',' ')+'.':'');
   window.scrollTo(0,0);
 }
@@ -347,6 +350,11 @@ document.addEventListener('click', e=>{
   const h = e.target.closest('[data-hist]'); if (h){ histMode=h.dataset.hist; render(); return; }
   if (e.target.id==='addDev'){ devices.push({n:'Nouvel appareil',w:100,h:1,hc:0}); LS.set('eh_devices',devices); render(); }
   const dd = e.target.closest('[data-deldev]'); if (dd){ devices.splice(+dd.dataset.deldev,1); LS.set('eh_devices',devices); render(); }
+  if (e.target.id==='loginBtn'){
+    const code=document.getElementById('code').value;
+    fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
+      .then(r=>r.ok?chargerServeur():(document.getElementById('loginMsg').textContent='Code incorrect.'));
+  }
   if (e.target.id==='themeBtn'){ const r=document.documentElement; const dark = r.dataset.theme==='dark' || (!r.dataset.theme && matchMedia('(prefers-color-scheme:dark)').matches); r.dataset.theme = dark?'light':'dark'; LS.set('eh_theme', r.dataset.theme); }
   if (e.target.id==='imp'){
     const f = document.getElementById('file').files[0], msg=document.getElementById('impMsg');
@@ -367,16 +375,23 @@ document.addEventListener('change', e=>{
   const di = e.target.dataset.dev; if (di!==undefined){ const f=e.target.dataset.f; devices[+di][f]= f==='n'?e.target.value:(parseFloat(e.target.value)||0); LS.set('eh_devices',devices); render(); return; }
   if (e.target.id==='factSel'){ factMonth=e.target.value; render(); }
 });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.id==='code') document.getElementById('loginBtn').click(); });
 addEventListener('hashchange', ()=>{ tab=(location.hash||'#accueil').slice(1); render(); });
 const th = LS.get('eh_theme',null); if (th) document.documentElement.dataset.theme = th;
 render();
-fetch('api/data',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
-  if(!j) return;
-  serverMode = true;
-  if (j.config){ ['hp','hc','abo'].forEach(k=>{ if(typeof j.config[k]==='number') settings[k]=j.config[k]; }); }
-  if (!j.demo && Object.keys(j.days).length){ data=j.days; demo=false; serverUpdated=j.updated; }
-  render();
-}).catch(()=>{});
+function chargerServeur(){
+  fetch('api/data',{cache:'no-store'}).then(r=>{
+    if (r.status===401){ needLogin=true; render(); return null; }
+    return r.ok ? r.json() : null;
+  }).then(j=>{
+    if(!j) return;
+    needLogin = false; serverMode = true;
+    if (j.config){ ['hp','hc','abo'].forEach(k=>{ if(typeof j.config[k]==='number') settings[k]=j.config[k]; }); }
+    if (!j.demo && Object.keys(j.days).length){ data=j.days; demo=false; serverUpdated=j.updated; }
+    render();
+  }).catch(()=>{});
+}
+chargerServeur();
 </script>
 </body>
 </html>
