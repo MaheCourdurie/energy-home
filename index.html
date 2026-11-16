@@ -305,12 +305,19 @@ views.appareils = () => {
     return `<div class="gh"><span>${t}</span><span>${fmtK(sum(l,calc))} · ${fmtE(sum(l,cout))}</span></div>${l.map(card).join('')}<div class="row"><button class="btn" data-add data-g="${g}">+ Ajouter un appareil</button></div>`; }).join('');
   const segs = devices.map((d,i)=>`<i style="width:${calc(d)/(Math.max(measured,total)||1)*100}%;background:${pal[i%8]}" title="${esc(d.n)}"></i>`).join('');
   const tour = devices.filter(d=>d.n.startsWith('Tour')), tourK = sum(tour,calc);
+  const tourMax = sum(tour,wl), hcFrac = ((settings.hcEnd-settings.hcStart+24)%24)/24, prixMoy = (1-hcFrac)*settings.hp + hcFrac*settings.hc;
   return `<div class="banner">Le Linky ne mesure que le total de la maison. Ici ce sont des <b>estimations</b> (watts × heures par jour), à ajuster selon ton usage réel : surtout les heures d'allumage de la tour.</div>
   <div class="grid">
     <div class="card"><h2>Appareils listés</h2><div class="big">${fmtK(total)}</div><div class="sub">${fmtE(totalCost)} / mois estimés</div></div>
     <div class="card"><h2>La tour seule</h2><div class="big">${fmtK(tourK)}</div><div class="sub">${fmtE(sum(tour,cout))} / mois · ${total?Math.round(tourK/total*100):0} % de la liste</div></div>
     <div class="card"><h2>Compteur (projeté)</h2><div class="big">${measured?fmtK(measured):'—'}</div><div class="sub">${measured?'non attribué : '+fmtK(rest)+' (chauffage, eau chaude, autres)':'en attente de relevés'}</div></div>
   </div>
+  <div class="card" style="margin-bottom:12px"><h2>Tour à pleine charge (processeur + carte graphique à fond)</h2>
+    <div class="big">${tourMax.toFixed(0)} W</div>
+    <div class="sub">≈ ${(tourMax/1000).toFixed(2)} kWh par heure · ${fmtE(tourMax/1000*settings.hp)} / h en heures pleines · ${fmtE(tourMax/1000*settings.hc)} / h en heures creuses</div>
+    <table style="margin-top:8px"><tr><td>Une journée complète (24 h)</td><td>${fmtK(tourMax*24/1000)}</td><td>${fmtE(tourMax*24/1000*prixMoy)}</td></tr>
+    <tr><td>Un mois complet (${dim} jours)</td><td>${fmtK(tourMax*24*dim/1000)}</td><td>${fmtE(tourMax*24*dim/1000*prixMoy)}</td></tr></table>
+    <div class="sub">Somme des watts « en charge » des lignes Tour ci-dessous. Prix moyen avec ${Math.round(hcFrac*100)} % du temps en heures creuses (${settings.hcStart} h – ${settings.hcEnd} h). En vrai, le processeur et la carte graphique ne tirent pas leur maximum en même temps en permanence : c'est une borne haute.</div></div>
   <div class="card"><h2>Répartition (${fmtMois(key)})</h2><div class="bar">${segs}</div>
   <div class="sub">Si la barre n'est pas pleine, le reste de la consommation du compteur n'est pas dans ta liste.</div></div>
   <div style="margin-top:6px">${blocs}</div>`;
