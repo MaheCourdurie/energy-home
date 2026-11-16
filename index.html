@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Energy Home</title>
 <meta name="theme-color" content="#0f172a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Cpath d='M18 4 8 18h7l-1 10 10-14h-7z' fill='%23fbbf24'/%3E%3C/svg%3E">
@@ -41,8 +41,8 @@ main{max-width:1100px;margin:0 auto;padding:0 16px 40px}
 @media (max-width:760px){.two{grid-template-columns:1fr}}
 .legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
 .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:baseline}
-svg{width:100%;height:auto;display:block}
-svg text{fill:var(--muted);font-size:10px}
+svg{height:auto;display:block}
+svg text{fill:var(--muted);font-size:11px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
@@ -56,6 +56,41 @@ input[type=number],input[type=text],input[type=date],select{background:var(--bg)
 .bar i{display:block;height:100%}
 footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;font-size:12px}
+
+.dev{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.dev-h{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.dev-h input{flex:1;font-weight:600}
+.dev-g{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.dev-g label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
+.dev-g input{width:100%}
+.dev-r{margin-top:8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dev-n{font-size:12px;color:var(--muted);margin-top:4px}
+.gh{font-size:13px;font-weight:700;margin:14px 0 8px;display:flex;justify-content:space-between;gap:8px}
+.info{min-height:20px;font-size:13px;margin-top:6px;color:var(--text)}
+.hit{fill:transparent;cursor:pointer}
+nav button .ic{display:none}
+.hm{}
+@media (max-width:700px){
+  body{font-size:16px;padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 16px}
+  header h1{font-size:17px}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:10;max-width:none;margin:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:0;justify-content:space-between;background:var(--card);border-top:1px solid var(--line);overflow:visible}
+  nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0;border-radius:10px;font-size:10.5px;min-width:0}
+  nav button .ic{display:block;font-size:20px;line-height:1.2}
+  nav button.on{background:transparent;color:var(--text);font-weight:700}
+  nav button.on .ic{transform:scale(1.15)}
+  .grid{grid-template-columns:1fr 1fr;gap:10px}
+  .card{padding:12px 13px}
+  .big{font-size:22px}
+  .sub{font-size:12.5px}
+  .hm{display:none}
+  th,td{padding:8px 4px}
+  .btn{min-height:42px}
+  select,input[type=number],input[type=text],input[type=date],input[type=password]{font-size:16px;min-height:42px}
+  .row .btn{flex:1}
+  .legend{font-size:12.5px}
+  footer{padding:14px 16px}
+}
 </style>
 </head>
 <body>
@@ -78,13 +113,21 @@ const DEF = { hp:0.2700, hc:0.2068, abo:15.65, hcStart:22, hcEnd:6, hcRatio:35 }
 let settings = Object.assign({}, DEF, LS.get('eh_settings', {}));
 let data = LS.get('eh_data', null);          // { 'YYYY-MM-DD': {hp, hc} }
 let demo = false, serverMode = false, serverUpdated = null, needLogin = false;
-let devices = LS.get('eh_devices', [
-  {n:'Réfrigérateur', w:90,  h:24, hc:35},
-  {n:'Ordinateur',    w:150, h:6,  hc:5},
-  {n:'Télévision',    w:100, h:4,  hc:0},
-  {n:'Lave-linge',    w:500, h:0.7, hc:60},
-  {n:'Éclairage',     w:60,  h:5,  hc:5}
-]);
+const DEV_DEF = [
+  // Informatique : tes appareils (w = repos/veille, wl = en charge, h = h/jour allumé, hl = dont h/jour en charge)
+  {g:'Informatique', n:'Tour : processeur Ryzen 5 5600X', w:25, wl:75,  h:6, hl:2, hc:5,  note:'25 W au repos, jusqu\'à 75 W en calcul'},
+  {g:'Informatique', n:'Tour : carte graphique RTX 4060 Ti', w:12, wl:160, h:6, hl:2, hc:15, note:'12 W au repos, 160 W en entraînement'},
+  {g:'Informatique', n:'Tour : carte mère, 32 Go de RAM, SSD, ventilos, alim', w:45, wl:45, h:6, hl:0, hc:5, note:'pertes de l\'alimentation comprises'},
+  {g:'Informatique', n:'Tablette Galaxy Tab S6 Lite (toujours allumée)', w:3, wl:3, h:24, hl:0, hc:35, note:'branchée en permanence, charge limitée à 85 %'},
+  {g:'Informatique', n:'MacBook Air M5', w:5, wl:20, h:8, hl:2, hc:10, note:'en charge : 20 W environ'},
+  // Maison : estimations génériques à ajuster
+  {g:'Maison', n:'Box internet', w:12, wl:12, h:24, hl:0, hc:35},
+  {g:'Maison', n:'Réfrigérateur', w:35, wl:35, h:24, hl:0, hc:35},
+  {g:'Maison', n:'Éclairage', w:40, wl:40, h:5, hl:0, hc:5},
+  {g:'Maison', n:'Télévision', w:90, wl:90, h:4, hl:0, hc:0},
+  {g:'Maison', n:'Lave-linge', w:600, wl:600, h:0.5, hl:0, hc:40}
+];
+let devices = LS.get('eh_devices2', DEV_DEF);
 
 /* ---------- Dates ---------- */
 const pad = n => String(n).padStart(2,'0');
@@ -132,28 +175,30 @@ function sumRange(from,to){ // inclusive strings
 }
 
 /* ---------- Graphiques (SVG) ---------- */
+const chartW = () => Math.max(250, Math.min(640, (document.getElementById('view').clientWidth||360) - 34));
 function stackedBars(rows, h=210){ // rows: [{label,hp,hc}]
-  const W=640, H=h, L=34, B=22, T=8, n=rows.length;
+  const W=Math.round(chartW()), H=h, L=30, B=22, T=8, n=rows.length;
   const max = Math.max(1, ...rows.map(r=>r.hp+r.hc))*1.08;
   const bw = (W-L)/n, g = Math.min(bw*0.25, 6);
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Consommation">`;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Consommation" style="max-width:100%">`;
   for (let i=0;i<=4;i++){
     const y = T+(H-T-B)*(1-i/4), v=(max*i/4);
     s += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L-4}" y="${y+3}" text-anchor="end">${v<10?v.toFixed(1):Math.round(v)}</text>`;
   }
-  const step = Math.ceil(n/12);
+  const step = Math.ceil(n/Math.max(4,Math.floor((W-L)/44)));
   rows.forEach((r,i)=>{
     const x = L+i*bw+g/2, w = bw-g, ph=(H-T-B);
     const hHC = r.hc/max*ph, hHP = r.hp/max*ph, yb = H-B;
     s += `<rect x="${x}" y="${yb-hHC}" width="${w}" height="${hHC}" fill="var(--hc)" rx="1.5"><title>${r.label} · HC ${r.hc.toFixed(1)} kWh</title></rect>`;
     s += `<rect x="${x}" y="${yb-hHC-hHP}" width="${w}" height="${hHP}" fill="var(--hp)" rx="1.5"><title>${r.label} · HP ${r.hp.toFixed(1)} kWh</title></rect>`;
     if (i%step===0) s += `<text x="${x+w/2}" y="${H-7}" text-anchor="middle">${r.label}</text>`;
+    s += `<rect class="hit" x="${L+i*bw}" y="${T}" width="${bw}" height="${H-T-B}" data-info="${r.label} · HP ${r.hp.toFixed(1)} kWh · HC ${r.hc.toFixed(1)} kWh · ${fmtE(cost(r.hp,r.hc))}"/>`;
   });
-  return s+'</svg>';
+  return s+'</svg><div class="info">Touche une barre pour voir le détail.</div>';
 }
 function donut(a,b){
   const t=a+b||1, r=46, c=2*Math.PI*r, pa=a/t*c;
-  return `<svg viewBox="0 0 120 120" style="max-width:170px;margin:auto" role="img" aria-label="Répartition HP/HC">
+  return `<svg viewBox="0 0 120 120" width="170" style="max-width:100%;margin:auto" role="img" aria-label="Répartition HP/HC">
   <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--hc)" stroke-width="16"/>
   <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--hp)" stroke-width="16" stroke-dasharray="${pa} ${c-pa}" transform="rotate(-90 60 60)"/>
   <text x="60" y="58" text-anchor="middle" style="font-size:16px;font-weight:700;fill:var(--text)">${Math.round(b/t*100)}%</text>
@@ -200,7 +245,7 @@ function lastNDays(n){
 
 views.hphc = () => {
   const ks = monthsList();
-  const rows = ks.map(k=>{const a=monthAgg(k); return `<tr><td>${fmtMois(k)}</td><td>${a.hp.toFixed(0)}</td><td>${a.hc.toFixed(0)}</td><td>${(a.hc/(a.kwh||1)*100).toFixed(0)} %</td><td>${fmtE(a.hp*settings.hp)}</td><td>${fmtE(a.hc*settings.hc)}</td></tr>`}).reverse().join('');
+  const rows = ks.map(k=>{const a=monthAgg(k); return `<tr><td>${fmtMois(k)}</td><td>${a.hp.toFixed(0)}</td><td>${a.hc.toFixed(0)}</td><td>${(a.hc/(a.kwh||1)*100).toFixed(0)} %</td><td class="hm">${fmtE(a.hp*settings.hp)}</td><td class="hm">${fmtE(a.hc*settings.hc)}</td></tr>`}).reverse().join('');
   const tot = ks.reduce((t,k)=>{const a=monthAgg(k);t.hp+=a.hp;t.hc+=a.hc;return t},{hp:0,hc:0});
   const pct = tot.hc/((tot.hp+tot.hc)||1)*100;
   const eco = tot.hp*0.15*(settings.hp-settings.hc);
@@ -211,7 +256,7 @@ views.hphc = () => {
     <div class="card"><h2>Astuce</h2><div class="sub" style="margin-top:0;font-size:14px">Décaler 15 % de la consommation HP vers les HC (${settings.hcStart} h – ${settings.hcEnd} h) économiserait ≈ <b>${fmtE(eco)}</b> sur la période.</div></div>
   </div>
   <div class="card" style="overflow:auto"><h2>Détail par mois</h2>
-  <table><tr><th>Mois</th><th>HP kWh</th><th>HC kWh</th><th>% HC</th><th>Coût HP</th><th>Coût HC</th></tr>${rows}</table></div>`;
+  <table><tr><th>Mois</th><th>HP kWh</th><th>HC kWh</th><th>% HC</th><th class="hm">Coût HP</th><th class="hm">Coût HC</th></tr>${rows}</table></div>`;
 };
 
 views.historique = () => {
@@ -225,34 +270,50 @@ views.historique = () => {
     rows = Object.keys(w).sort().slice(-26).map(id=>({label:id.slice(8)+'/'+id.slice(5,7),...w[id]})); title='26 dernières semaines (lundi)';
   } else { rows = monthsList().map(k=>{const a=monthAgg(k);return {label:k.slice(5)+'/'+k.slice(2,4),hp:a.hp,hc:a.hc}}); title='Par mois'; }
   const tot = rows.reduce((t,r)=>({hp:t.hp+r.hp,hc:t.hc+r.hc}),{hp:0,hc:0});
-  const tbl = rows.slice().reverse().slice(0,20).map(r=>`<tr><td>${r.label}</td><td>${r.hp.toFixed(1)}</td><td>${r.hc.toFixed(1)}</td><td>${(r.hp+r.hc).toFixed(1)}</td><td>${fmtE(cost(r.hp,r.hc))}</td></tr>`).join('');
+  const tbl = rows.slice().reverse().slice(0,20).map(r=>`<tr><td>${r.label}</td><td class="hm">${r.hp.toFixed(1)}</td><td class="hm">${r.hc.toFixed(1)}</td><td>${(r.hp+r.hc).toFixed(1)}</td><td>${fmtE(cost(r.hp,r.hc))}</td></tr>`).join('');
   return `<div class="row">${mk('jour')}${mk('semaine')}${mk('mois')}</div>
   <div class="card"><h2>${title}</h2>${stackedBars(rows,240)}${legend()}
   <div class="sub">Total affiché : ${fmtK(tot.hp+tot.hc)} · ${fmtE(cost(tot.hp,tot.hc))}</div></div>
   <div class="card" style="margin-top:12px;overflow:auto"><h2>Détail (20 dernières lignes)</h2>
-  <table><tr><th>Période</th><th>HP</th><th>HC</th><th>Total kWh</th><th>Coût</th></tr>${tbl}</table></div>`;
+  <table><tr><th>Période</th><th class="hm">HP</th><th class="hm">HC</th><th>Total kWh</th><th>Coût</th></tr>${tbl}</table></div>`;
 };
 
 views.appareils = () => {
   const key = mkey(lastDate()), cur = monthAgg(key), [y,m]=key.split('-').map(Number), dim=daysIn(y,m);
-  const calc = d => d.w*d.h*dim/1000;
-  const total = devices.reduce((t,d)=>t+calc(d),0);
+  const wl = d => d.wl==null? d.w : d.wl;
+  const kwhJ = d => { const hl=Math.min(d.hl||0,d.h); return (d.w*(d.h-hl) + wl(d)*hl)/1000; };
+  const calc = d => kwhJ(d)*dim;
+  const cout = d => calc(d)*((1-d.hc/100)*settings.hp + d.hc/100*settings.hc);
+  const sum = (list,f) => list.reduce((t,d)=>t+f(d),0);
+  const total = sum(devices,calc), totalCost = sum(devices,cout);
   const measured = cur.n? cur.kwh/cur.n*dim : 0;
   const rest = Math.max(0, measured-total);
-  const rows = devices.map((d,i)=>{ const k=calc(d), c=k*((1-d.hc/100)*settings.hp+d.hc/100*settings.hc);
-    return `<tr><td><input type="text" value="${esc(d.n)}" data-dev="${i}" data-f="n" style="width:130px"></td>
-    <td><input type="number" value="${d.w}" min="0" data-dev="${i}" data-f="w" style="width:70px"></td>
-    <td><input type="number" value="${d.h}" min="0" max="24" step="0.1" data-dev="${i}" data-f="h" style="width:60px"></td>
-    <td><input type="number" value="${d.hc}" min="0" max="100" data-dev="${i}" data-f="hc" style="width:60px"></td>
-    <td>${k.toFixed(1)}</td><td>${fmtE(c)}</td><td><button class="btn danger" data-deldev="${i}">✕</button></td></tr>`}).join('');
   const pal=['#f59e0b','#2563eb','#16a34a','#dc2626','#9333ea','#0891b2','#db2777','#65a30d'];
-  const segs = devices.map((d,i)=>`<i style="width:${calc(d)/(measured||1)*100}%;background:${pal[i%8]}" title="${esc(d.n)}"></i>`).join('');
-  return `<div class="banner">Le Linky ne mesure que la consommation globale. Ici, ce sont des <b>estimations</b> (puissance × heures/jour) en attendant d'éventuelles prises connectées.</div>
-  <div class="card" style="overflow:auto"><h2>Appareils (estimation mensuelle ${fmtMois(key)})</h2>
-  <table><tr><th>Appareil</th><th>Watts</th><th>h/jour</th><th>% HC</th><th>kWh/mois</th><th>Coût</th><th></th></tr>${rows}</table>
-  <div class="row" style="margin-top:10px"><button class="btn" id="addDev">+ Ajouter un appareil</button></div>
-  <div class="bar">${segs}</div>
-  <div class="sub">Appareils : ${fmtK(total)} sur ${fmtK(measured)} projetés au compteur — reste non attribué : ${fmtK(rest)}</div></div>`;
+  const card = d => { const i=devices.indexOf(d); return `<div class="dev">
+    <div class="dev-h"><input type="text" value="${esc(d.n)}" data-dev="${i}" data-f="n"><button class="btn danger" data-deldev="${i}" aria-label="Supprimer">✕</button></div>
+    <div class="dev-g">
+      <label>Repos (W)<input type="number" inputmode="decimal" value="${d.w}" min="0" data-dev="${i}" data-f="w"></label>
+      <label>Allumé (h/jour)<input type="number" inputmode="decimal" value="${d.h}" min="0" max="24" step="0.1" data-dev="${i}" data-f="h"></label>
+      <label>En charge (W)<input type="number" inputmode="decimal" value="${wl(d)}" min="0" data-dev="${i}" data-f="wl"></label>
+      <label>dont en charge (h/jour)<input type="number" inputmode="decimal" value="${d.hl||0}" min="0" max="24" step="0.1" data-dev="${i}" data-f="hl"></label>
+      <label>% en heures creuses<input type="number" inputmode="decimal" value="${d.hc}" min="0" max="100" data-dev="${i}" data-f="hc"></label>
+    </div>
+    <div class="dev-r"><span><b>${calc(d).toFixed(1)} kWh</b> / mois</span><span><b>${fmtE(cout(d))}</b> / mois</span></div>
+    ${d.note?`<div class="dev-n">${esc(d.note)}</div>`:''}</div>`; };
+  const groupes = [['Informatique','Informatique (tes appareils)'],['Maison','Maison (estimations génériques à ajuster)']];
+  const blocs = groupes.map(([g,t])=>{ const l=devices.filter(d=>(d.g||'Maison')===g);
+    return `<div class="gh"><span>${t}</span><span>${fmtK(sum(l,calc))} · ${fmtE(sum(l,cout))}</span></div>${l.map(card).join('')}<div class="row"><button class="btn" data-add data-g="${g}">+ Ajouter un appareil</button></div>`; }).join('');
+  const segs = devices.map((d,i)=>`<i style="width:${calc(d)/(Math.max(measured,total)||1)*100}%;background:${pal[i%8]}" title="${esc(d.n)}"></i>`).join('');
+  const tour = devices.filter(d=>d.n.startsWith('Tour')), tourK = sum(tour,calc);
+  return `<div class="banner">Le Linky ne mesure que le total de la maison. Ici ce sont des <b>estimations</b> (watts × heures par jour), à ajuster selon ton usage réel : surtout les heures d'allumage de la tour.</div>
+  <div class="grid">
+    <div class="card"><h2>Appareils listés</h2><div class="big">${fmtK(total)}</div><div class="sub">${fmtE(totalCost)} / mois estimés</div></div>
+    <div class="card"><h2>La tour seule</h2><div class="big">${fmtK(tourK)}</div><div class="sub">${fmtE(sum(tour,cout))} / mois · ${total?Math.round(tourK/total*100):0} % de la liste</div></div>
+    <div class="card"><h2>Compteur (projeté)</h2><div class="big">${measured?fmtK(measured):'—'}</div><div class="sub">${measured?'non attribué : '+fmtK(rest)+' (chauffage, eau chaude, autres)':'en attente de relevés'}</div></div>
+  </div>
+  <div class="card"><h2>Répartition (${fmtMois(key)})</h2><div class="bar">${segs}</div>
+  <div class="sub">Si la barre n'est pas pleine, le reste de la consommation du compteur n'est pas dans ta liste.</div></div>
+  <div style="margin-top:6px">${blocs}</div>`;
 };
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -266,8 +327,8 @@ views.facture = () => {
   return `<div class="row"><select id="factSel">${opts}</select></div>
   <div class="two"><div class="card"><h2>Facture estimée ${complete?'':'(projection fin de mois)'}</h2>
   <table>
-  <tr><td>Heures pleines</td><td>${hp.toFixed(1)} kWh × ${settings.hp.toFixed(4)} €</td><td>${fmtE(hp*settings.hp)}</td></tr>
-  <tr><td>Heures creuses</td><td>${hc.toFixed(1)} kWh × ${settings.hc.toFixed(4)} €</td><td>${fmtE(hc*settings.hc)}</td></tr>
+  <tr><td>Heures pleines</td><td class="sub" style="margin:0">${hp.toFixed(1)} kWh × ${settings.hp.toFixed(4)}</td><td>${fmtE(hp*settings.hp)}</td></tr>
+  <tr><td>Heures creuses</td><td class="sub" style="margin:0">${hc.toFixed(1)} kWh × ${settings.hc.toFixed(4)}</td><td>${fmtE(hc*settings.hc)}</td></tr>
   <tr><td>Abonnement</td><td>1 mois</td><td>${fmtE(settings.abo)}</td></tr>
   <tr><td><b>Total TTC estimé</b></td><td></td><td><b>${fmtE(total)}</b></td></tr></table>
   <div class="sub">Calcul : (kWh HP × tarif HP) + (kWh HC × tarif HC) + abonnement. Tarifs à ajuster dans Réglages.</div></div>
@@ -333,23 +394,24 @@ function importText(txt){
 }
 
 /* ---------- Rendu ---------- */
-const TABS = [['accueil','Vue générale'],['hphc','HP / HC'],['historique','Historique'],['appareils','Appareils'],['facture','Facture'],['reglages','Réglages']];
-function render(){
+const TABS = [['accueil','Vue générale','🏠'],['hphc','HP / HC','⏱️'],['historique','Historique','📊'],['appareils','Appareils','🔌'],['facture','Facture','🧾'],['reglages','Réglages','⚙️']];
+function render(keep){
   if (!views[tab]) tab='accueil';
-  document.getElementById('tabs').innerHTML = TABS.map(([id,l])=>`<button class="${id===tab?'on':''}" data-tab="${id}">${l}</button>`).join('');
+  document.getElementById('tabs').innerHTML = TABS.map(([id,l,ic])=>`<button class="${id===tab?'on':''}" data-tab="${id}"><span class="ic">${ic}</span><span>${l}</span></button>`).join('');
   const banner = demo && tab!=='reglages' ? `<div class="banner">🧪 <b>Données de démonstration.</b> ${serverMode?'En attente des premiers relevés Linky (collecte automatique chaque matin).':'Importe tes relevés Linky dans <a href="#reglages">Réglages</a> pour voir tes vrais chiffres.'}</div>`:'';
   document.getElementById('view').innerHTML = needLogin
     ? `<div class="card" style="max-width:380px;margin:30px auto"><h2>Accès privé</h2><p class="note" style="margin-top:0">Entre le code d'accès pour voir la consommation de la maison. Sans code, tu vois seulement des données de démonstration.</p>
        <div class="row"><input type="password" id="code" placeholder="Code d'accès" autocomplete="current-password"><button class="btn primary" id="loginBtn">Entrer</button></div><div class="note" id="loginMsg"></div></div>`
     : banner + views[tab]();
   document.getElementById('foot').textContent='Montants estimés, hors facture officielle.'+(serverUpdated?' Dernière récupération Linky : '+serverUpdated.replace('T',' ')+'.':'');
-  window.scrollTo(0,0);
+  if(!keep) window.scrollTo(0,0);
 }
 document.addEventListener('click', e=>{
+  const bi = e.target.closest('[data-info]'); if (bi){ const c=bi.closest('.card'); const el=c&&c.querySelector('.info'); if(el) el.textContent=bi.dataset.info; return; }
   const t = e.target.closest('[data-tab]'); if (t){ tab=t.dataset.tab; location.hash=tab; return; }
   const h = e.target.closest('[data-hist]'); if (h){ histMode=h.dataset.hist; render(); return; }
-  if (e.target.id==='addDev'){ devices.push({n:'Nouvel appareil',w:100,h:1,hc:0}); LS.set('eh_devices',devices); render(); }
-  const dd = e.target.closest('[data-deldev]'); if (dd){ devices.splice(+dd.dataset.deldev,1); LS.set('eh_devices',devices); render(); }
+  if (e.target.dataset.add!==undefined){ devices.push({g:e.target.dataset.g||'Maison',n:'Nouvel appareil',w:100,wl:100,h:1,hl:0,hc:0}); LS.set('eh_devices2',devices); render(); }
+  const dd = e.target.closest('[data-deldev]'); if (dd){ devices.splice(+dd.dataset.deldev,1); LS.set('eh_devices2',devices); render(true); }
   if (e.target.id==='loginBtn'){
     const code=document.getElementById('code').value;
     fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
@@ -372,10 +434,12 @@ document.addEventListener('click', e=>{
 });
 document.addEventListener('change', e=>{
   const s = e.target.dataset.set; if (s){ const v=parseFloat(e.target.value); if(!isNaN(v)){ settings[s]=v; LS.set('eh_settings',settings); } return; }
-  const di = e.target.dataset.dev; if (di!==undefined){ const f=e.target.dataset.f; devices[+di][f]= f==='n'?e.target.value:(parseFloat(e.target.value)||0); LS.set('eh_devices',devices); render(); return; }
+  const di = e.target.dataset.dev; if (di!==undefined){ const f=e.target.dataset.f; devices[+di][f]= f==='n'?e.target.value:(parseFloat(e.target.value)||0); LS.set('eh_devices2',devices); render(true); return; }
   if (e.target.id==='factSel'){ factMonth=e.target.value; render(); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.id==='code') document.getElementById('loginBtn').click(); });
+let _w = innerWidth, _t;
+addEventListener('resize', ()=>{ clearTimeout(_t); _t=setTimeout(()=>{ if (innerWidth!==_w && !(document.activeElement&&/INPUT|SELECT/.test(document.activeElement.tagName))){ _w=innerWidth; render(true); } },200); });
 addEventListener('hashchange', ()=>{ tab=(location.hash||'#accueil').slice(1); render(); });
 const th = LS.get('eh_theme',null); if (th) document.documentElement.dataset.theme = th;
 render();
