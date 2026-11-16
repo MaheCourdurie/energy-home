@@ -65,7 +65,7 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:
 </header>
 <nav id="tabs"></nav>
 <main id="view"></main>
-<footer>Montants estimés, hors facture officielle. Les données restent dans ton navigateur.</footer>
+<footer id="foot">Montants estimés, hors facture officielle. Les données restent dans ton navigateur.</footer>
 
 <script>
 "use strict";
@@ -77,7 +77,7 @@ const LS = {
 const DEF = { hp:0.2700, hc:0.2068, abo:15.65, hcStart:22, hcEnd:6, hcRatio:35 };
 let settings = Object.assign({}, DEF, LS.get('eh_settings', {}));
 let data = LS.get('eh_data', null);          // { 'YYYY-MM-DD': {hp, hc} }
-let demo = false;
+let demo = false, serverMode = false, serverUpdated = null;
 let devices = LS.get('eh_devices', [
   {n:'Réfrigérateur', w:90,  h:24, hc:35},
   {n:'Ordinateur',    w:150, h:6,  hc:5},
@@ -285,7 +285,7 @@ views.reglages = () => `
     ${fld('hcStart','Début heures creuses (h)',settings.hcStart,1)}
     ${fld('hcEnd','Fin heures creuses (h)',settings.hcEnd,1)}
     ${fld('hcRatio','Part HC si relevé journalier simple (%)',settings.hcRatio,1)}
-  </div><div class="note" style="margin-top:8px">Valeurs par défaut indicatives : remplace-les par celles de ta facture (prix TTC).</div></div>
+  </div><div class="note" style="margin-top:8px">Valeurs par défaut indicatives : remplace-les par celles de ta facture (prix TTC). ${serverMode?'<b>Sur la tablette, les tarifs se règlent dans config.json</b> (ceux d\'ici sont écrasés au chargement).':''}</div></div>
   <div class="card" style="margin-top:12px"><h2>Importer mes données Linky</h2>
   <p class="note" style="margin-top:0">Formats acceptés : <b>CSV</b> <code>date;hp;hc</code> (kWh, ex. <code>2026-11-14;5,2;3,1</code>) · <b>JSON Conso API</b> (<code>daily_consumption</code> ou <code>consumption_load_curve</code>, en Wh) · CSV <code>date;valeur</code> (Wh, courbe de charge ou journalier).</p>
   <div class="row"><input type="file" id="file" accept=".csv,.txt,.json"><button class="btn primary" id="imp">Importer</button>
@@ -307,11 +307,12 @@ function importText(txt){
   const num = s => parseFloat(String(s).replace(',','.'));
   const point = (ts,wh,stepMin) => {   // wh en Wh pour l'intervalle
     const m = ts.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2}))?/); if(!m) return;
-    const kwh = wh/1000;
+    const kwh = wh/1000*(m[2]!==undefined&&stepMin?stepMin/60:1);   // courbe de charge : puissance moyenne en W
     if (m[2]===undefined){ const hc=kwh*settings.hcRatio/100; add(m[1],kwh-hc,hc); }
     else { // l'horodatage Enedis marque la fin de l'intervalle : on prend le début
       const t = parseInt(m[2])*60+parseInt(m[3]) - (stepMin||30); const h = Math.floor(((t%1440)+1440)%1440/60);
-      isHC(h) ? add(m[1],0,kwh) : add(m[1],kwh,0);
+      let day = m[1]; if (t<0){ const d=parseD(day); d.setDate(d.getDate()-1); day=ymd(d); }
+      isHC(h) ? add(day,0,kwh) : add(day,kwh,0);
     }
   };
   txt = txt.trim();
@@ -336,8 +337,9 @@ const TABS = [['accueil','Vue générale'],['hphc','HP / HC'],['historique','His
 function render(){
   if (!views[tab]) tab='accueil';
   document.getElementById('tabs').innerHTML = TABS.map(([id,l])=>`<button class="${id===tab?'on':''}" data-tab="${id}">${l}</button>`).join('');
-  const banner = demo && tab!=='reglages' ? `<div class="banner">🧪 <b>Données de démonstration.</b> Importe tes relevés Linky dans <a href="#reglages">Réglages</a> pour voir tes vrais chiffres.</div>`:'';
+  const banner = demo && tab!=='reglages' ? `<div class="banner">🧪 <b>Données de démonstration.</b> ${serverMode?'En attente des premiers relevés Linky (collecte automatique chaque matin).':'Importe tes relevés Linky dans <a href="#reglages">Réglages</a> pour voir tes vrais chiffres.'}</div>`:'';
   document.getElementById('view').innerHTML = banner + views[tab]();
+  document.getElementById('foot').textContent='Montants estimés, hors facture officielle.'+(serverUpdated?' Dernière récupération Linky : '+serverUpdated.replace('T',' ')+'.':'');
   window.scrollTo(0,0);
 }
 document.addEventListener('click', e=>{
@@ -368,6 +370,13 @@ document.addEventListener('change', e=>{
 addEventListener('hashchange', ()=>{ tab=(location.hash||'#accueil').slice(1); render(); });
 const th = LS.get('eh_theme',null); if (th) document.documentElement.dataset.theme = th;
 render();
+fetch('api/data',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+  if(!j) return;
+  serverMode = true;
+  if (j.config){ ['hp','hc','abo'].forEach(k=>{ if(typeof j.config[k]==='number') settings[k]=j.config[k]; }); }
+  if (!j.demo && Object.keys(j.days).length){ data=j.days; demo=false; serverUpdated=j.updated; }
+  render();
+}).catch(()=>{});
 </script>
 </body>
 </html>
