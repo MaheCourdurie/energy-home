@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energy Home</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Cpath d='M18 4 8 18h7l-1 10 10-14h-7z' fill='%23fbbf24'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f4f6fb;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;
+  --hp:#f59e0b;--hc:#2563eb;--ok:#16a34a;--bad:#dc2626;--accent:#0f172a;--accentText:#fff;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1020;--card:#141b30;--text:#e8edf8;--muted:#8b97b5;--line:#243050;
+  --hp:#fbbf24;--hc:#60a5fa;--ok:#4ade80;--bad:#f87171;--accent:#e8edf8;--accentText:#0b1020;}}
+:root[data-theme="dark"]{
+  --bg:#0b1020;--card:#141b30;--text:#e8edf8;--muted:#8b97b5;--line:#243050;
+  --hp:#fbbf24;--hc:#60a5fa;--ok:#4ade80;--bad:#f87171;--accent:#e8edf8;--accentText:#0b1020;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 16px;max-width:1100px;margin:0 auto}
+header h1{font-size:18px;margin:0;flex:1}
+header h1 span{color:var(--hp)}
+button,select,input{font:inherit;color:inherit}
+.btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accentText);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px;max-width:1100px;margin:0 auto}
+nav button{white-space:nowrap;background:transparent;border:1px solid transparent;border-radius:999px;padding:6px 14px;cursor:pointer;color:var(--muted)}
+nav button.on{background:var(--accent);color:var(--accentText)}
+main{max-width:1100px;margin:0 auto;padding:0 16px 40px}
+.banner{background:var(--card);border:1px dashed var(--hp);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.card h2{font-size:13px;font-weight:600;margin:0 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:28px;font-weight:700;line-height:1.1}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.up{color:var(--bad)}.down{color:var(--ok)}
+.two{display:grid;gap:12px;grid-template-columns:2fr 1fr;margin-bottom:14px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:baseline}
+svg{width:100%;height:auto;display:block}
+svg text{fill:var(--muted);font-size:10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+input[type=number],input[type=text],input[type=date],select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--text);min-width:0}
+.form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.note{font-size:13px;color:var(--muted)}
+.bar{height:10px;border-radius:6px;background:var(--line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Energy <span>Home</span></h1>
+  <button class="btn" id="themeBtn" title="Thème">🌓</button>
+</header>
+<nav id="tabs"></nav>
+<main id="view"></main>
+<footer>Montants estimés, hors facture officielle. Les données restent dans ton navigateur.</footer>
+
+<script>
+"use strict";
+/* ---------- Stockage ---------- */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const DEF = { hp:0.2700, hc:0.2068, abo:15.65, hcStart:22, hcEnd:6, hcRatio:35 };
+let settings = Object.assign({}, DEF, LS.get('eh_settings', {}));
+let data = LS.get('eh_data', null);          // { 'YYYY-MM-DD': {hp, hc} }
+let demo = false;
+let devices = LS.get('eh_devices', [
+  {n:'Réfrigérateur', w:90,  h:24, hc:35},
+  {n:'Ordinateur',    w:150, h:6,  hc:5},
+  {n:'Télévision',    w:100, h:4,  hc:0},
+  {n:'Lave-linge',    w:500, h:0.7, hc:60},
+  {n:'Éclairage',     w:60,  h:5,  hc:5}
+]);
+
+/* ---------- Dates ---------- */
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parseD = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
+const mkey = s => s.slice(0,7);
+const daysIn = (y,m) => new Date(y,m,0).getDate();           // m = 1..12
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const JOURS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+const fmtK = v => v.toLocaleString('fr-FR',{maximumFractionDigits:1,minimumFractionDigits:1})+' kWh';
+const fmtE = v => v.toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+const fmtMois = k => { const [y,m]=k.split('-').map(Number); return MOIS[m-1]+' '+y; };
+
+/* ---------- Démo ---------- */
+function genDemo(){
+  const out = {}; let seed = 7;
+  const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+  const today = new Date(); today.setHours(0,0,0,0);
+  for (let i=150;i>=1;i--){
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const winter = [10,11,0,1,2].includes(d.getMonth()) ? 1.35 : 1;
+    const we = [0,6].includes(d.getDay()) ? 1.15 : 1;
+    const tot = (7 + rnd()*5) * winter * we;
+    const hc = tot * (0.30 + rnd()*0.12);
+    out[ymd(d)] = { hp:+(tot-hc).toFixed(2), hc:+hc.toFixed(2) };
+  }
+  return out;
+}
+if (!data || !Object.keys(data).length){ data = genDemo(); demo = true; }
+else demo = LS.get('eh_demo', false);
+function persist(){ LS.set('eh_data', data); LS.set('eh_demo', demo); }
+
+/* ---------- Calculs ---------- */
+const cost = (hp,hc) => hp*settings.hp + hc*settings.hc;
+function monthAgg(key){
+  let hp=0,hc=0,n=0,last=0;
+  for (const [d,v] of Object.entries(data)) if (mkey(d)===key){ hp+=v.hp; hc+=v.hc; n++; last=Math.max(last,+d.slice(8)); }
+  return {hp,hc,kwh:hp+hc,n,last,cost:cost(hp,hc)};
+}
+function monthsList(){ return [...new Set(Object.keys(data).map(mkey))].sort(); }
+function prevKey(k){ let [y,m]=k.split('-').map(Number); m--; if(!m){m=12;y--;} return y+'-'+pad(m); }
+function lastDate(){ return Object.keys(data).sort().pop(); }
+function sumRange(from,to){ // inclusive strings
+  let hp=0,hc=0; for (const [d,v] of Object.entries(data)) if (d>=from && d<=to){ hp+=v.hp; hc+=v.hc; } return {hp,hc,kwh:hp+hc,cost:cost(hp,hc)};
+}
+
+/* ---------- Graphiques (SVG) ---------- */
+function stackedBars(rows, h=210){ // rows: [{label,hp,hc}]
+  const W=640, H=h, L=34, B=22, T=8, n=rows.length;
+  const max = Math.max(1, ...rows.map(r=>r.hp+r.hc))*1.08;
+  const bw = (W-L)/n, g = Math.min(bw*0.25, 6);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Consommation">`;
+  for (let i=0;i<=4;i++){
+    const y = T+(H-T-B)*(1-i/4), v=(max*i/4);
+    s += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L-4}" y="${y+3}" text-anchor="end">${v<10?v.toFixed(1):Math.round(v)}</text>`;
+  }
+  const step = Math.ceil(n/12);
+  rows.forEach((r,i)=>{
+    const x = L+i*bw+g/2, w = bw-g, ph=(H-T-B);
+    const hHC = r.hc/max*ph, hHP = r.hp/max*ph, yb = H-B;
+    s += `<rect x="${x}" y="${yb-hHC}" width="${w}" height="${hHC}" fill="var(--hc)" rx="1.5"><title>${r.label} · HC ${r.hc.toFixed(1)} kWh</title></rect>`;
+    s += `<rect x="${x}" y="${yb-hHC-hHP}" width="${w}" height="${hHP}" fill="var(--hp)" rx="1.5"><title>${r.label} · HP ${r.hp.toFixed(1)} kWh</title></rect>`;
+    if (i%step===0) s += `<text x="${x+w/2}" y="${H-7}" text-anchor="middle">${r.label}</text>`;
+  });
+  return s+'</svg>';
+}
+function donut(a,b){
+  const t=a+b||1, r=46, c=2*Math.PI*r, pa=a/t*c;
+  return `<svg viewBox="0 0 120 120" style="max-width:170px;margin:auto" role="img" aria-label="Répartition HP/HC">
+  <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--hc)" stroke-width="16"/>
+  <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--hp)" stroke-width="16" stroke-dasharray="${pa} ${c-pa}" transform="rotate(-90 60 60)"/>
+  <text x="60" y="58" text-anchor="middle" style="font-size:16px;font-weight:700;fill:var(--text)">${Math.round(b/t*100)}%</text>
+  <text x="60" y="73" text-anchor="middle">heures creuses</text></svg>`;
+}
+const legend = () => `<div class="legend"><span><i class="dot" style="background:var(--hp)"></i>Heures pleines</span><span><i class="dot" style="background:var(--hc)"></i>Heures creuses</span></div>`;
+const delta = (cur,prev) => { if(!prev) return ''; const p=(cur-prev)/prev*100; return `<span class="${p>0?'up':'down'}">${p>0?'▲':'▼'} ${Math.abs(p).toFixed(0)} %</span>`; };
+
+/* ---------- Vues ---------- */
+const views = {};
+let tab = (location.hash||'#accueil').slice(1);
+let histMode = 'jour', factMonth = null;
+
+views.accueil = () => {
+  const lastD = lastDate(), key = mkey(lastD), cur = monthAgg(key), prev = monthAgg(prevKey(key));
+  const [y,m] = key.split('-').map(Number), dim = daysIn(y,m);
+  const avg = cur.kwh/(cur.n||1), projKwh = avg*dim, projHp = cur.hp/(cur.n||1)*dim, projHc = cur.hc/(cur.n||1)*dim;
+  const projCost = cost(projHp,projHc)+settings.abo;
+  const prevToDate = sumRange(prevKey(key)+'-01', prevKey(key)+'-'+pad(Math.min(cur.last, daysIn(...prevKey(key).split('-').map(Number)))));
+  const last30 = lastNDays(30);
+  const lastV = data[lastD];
+  return `
+  <div class="grid">
+    <div class="card"><h2>Dernier relevé (J-1)</h2><div class="big">${fmtK(lastV.hp+lastV.hc)}</div>
+      <div class="sub">${fmtE(cost(lastV.hp,lastV.hc))} · ${JOURS[parseD(lastD).getDay()]} ${parseD(lastD).getDate()} ${MOIS[parseD(lastD).getMonth()]}</div></div>
+    <div class="card"><h2>Ce mois-ci</h2><div class="big">${fmtE(cur.cost+settings.abo*cur.n/dim)}</div>
+      <div class="sub">${fmtK(cur.kwh)} · ${cur.n} jours · ${delta(cur.cost,prevToDate.cost)} vs mois préc.</div></div>
+    <div class="card"><h2>Moyenne par jour</h2><div class="big">${fmtE(cur.cost/(cur.n||1))}</div>
+      <div class="sub">${fmtK(avg)} / jour (hors abonnement)</div></div>
+    <div class="card"><h2>Estimation fin de mois</h2><div class="big">${fmtE(projCost)}</div>
+      <div class="sub">${fmtK(projKwh)} · abonnement inclus</div></div>
+  </div>
+  <div class="two">
+    <div class="card"><h2>30 derniers jours</h2>${stackedBars(last30)}${legend()}</div>
+    <div class="card"><h2>Répartition ${fmtMois(key)}</h2>${donut(cur.hp,cur.hc)}
+      <table style="margin-top:10px"><tr><td><i class="dot" style="background:var(--hp)"></i>HP</td><td>${fmtK(cur.hp)}</td><td>${fmtE(cur.hp*settings.hp)}</td></tr>
+      <tr><td><i class="dot" style="background:var(--hc)"></i>HC</td><td>${fmtK(cur.hc)}</td><td>${fmtE(cur.hc*settings.hc)}</td></tr></table></div>
+  </div>`;
+};
+function lastNDays(n){
+  const ks = Object.keys(data).sort().slice(-n);
+  return ks.map(k=>({label:k.slice(8)+'/'+k.slice(5,7), hp:data[k].hp, hc:data[k].hc}));
+}
+
+views.hphc = () => {
+  const ks = monthsList();
+  const rows = ks.map(k=>{const a=monthAgg(k); return `<tr><td>${fmtMois(k)}</td><td>${a.hp.toFixed(0)}</td><td>${a.hc.toFixed(0)}</td><td>${(a.hc/(a.kwh||1)*100).toFixed(0)} %</td><td>${fmtE(a.hp*settings.hp)}</td><td>${fmtE(a.hc*settings.hc)}</td></tr>`}).reverse().join('');
+  const tot = ks.reduce((t,k)=>{const a=monthAgg(k);t.hp+=a.hp;t.hc+=a.hc;return t},{hp:0,hc:0});
+  const pct = tot.hc/((tot.hp+tot.hc)||1)*100;
+  const eco = tot.hp*0.15*(settings.hp-settings.hc);
+  return `
+  <div class="grid">
+    <div class="card"><h2>Part heures creuses</h2><div class="big">${pct.toFixed(0)} %</div><div class="sub">sur toute la période</div></div>
+    <div class="card"><h2>Prix HP / HC</h2><div class="big">${settings.hp.toFixed(4)} / ${settings.hc.toFixed(4)}</div><div class="sub">€ TTC le kWh · écart ${(settings.hp-settings.hc).toFixed(4)} €</div></div>
+    <div class="card"><h2>Astuce</h2><div class="sub" style="margin-top:0;font-size:14px">Décaler 15 % de la consommation HP vers les HC (${settings.hcStart} h – ${settings.hcEnd} h) économiserait ≈ <b>${fmtE(eco)}</b> sur la période.</div></div>
+  </div>
+  <div class="card" style="overflow:auto"><h2>Détail par mois</h2>
+  <table><tr><th>Mois</th><th>HP kWh</th><th>HC kWh</th><th>% HC</th><th>Coût HP</th><th>Coût HC</th></tr>${rows}</table></div>`;
+};
+
+views.historique = () => {
+  const mk = m => `<button class="btn ${histMode===m?'primary':''}" data-hist="${m}">${m[0].toUpperCase()+m.slice(1)}</button>`;
+  let rows=[], title='';
+  const keys = Object.keys(data).sort();
+  if (histMode==='jour'){ rows = keys.slice(-45).map(k=>({label:k.slice(8)+'/'+k.slice(5,7),hp:data[k].hp,hc:data[k].hc})); title='45 derniers jours'; }
+  else if (histMode==='semaine'){
+    const w={};
+    keys.forEach(k=>{ const d=parseD(k); const mon=new Date(d); mon.setDate(d.getDate()-((d.getDay()+6)%7)); const id=ymd(mon); (w[id]=w[id]||{hp:0,hc:0}); w[id].hp+=data[k].hp; w[id].hc+=data[k].hc; });
+    rows = Object.keys(w).sort().slice(-26).map(id=>({label:id.slice(8)+'/'+id.slice(5,7),...w[id]})); title='26 dernières semaines (lundi)';
+  } else { rows = monthsList().map(k=>{const a=monthAgg(k);return {label:k.slice(5)+'/'+k.slice(2,4),hp:a.hp,hc:a.hc}}); title='Par mois'; }
+  const tot = rows.reduce((t,r)=>({hp:t.hp+r.hp,hc:t.hc+r.hc}),{hp:0,hc:0});
+  const tbl = rows.slice().reverse().slice(0,20).map(r=>`<tr><td>${r.label}</td><td>${r.hp.toFixed(1)}</td><td>${r.hc.toFixed(1)}</td><td>${(r.hp+r.hc).toFixed(1)}</td><td>${fmtE(cost(r.hp,r.hc))}</td></tr>`).join('');
+  return `<div class="row">${mk('jour')}${mk('semaine')}${mk('mois')}</div>
+  <div class="card"><h2>${title}</h2>${stackedBars(rows,240)}${legend()}
+  <div class="sub">Total affiché : ${fmtK(tot.hp+tot.hc)} · ${fmtE(cost(tot.hp,tot.hc))}</div></div>
+  <div class="card" style="margin-top:12px;overflow:auto"><h2>Détail (20 dernières lignes)</h2>
+  <table><tr><th>Période</th><th>HP</th><th>HC</th><th>Total kWh</th><th>Coût</th></tr>${tbl}</table></div>`;
+};
+
+views.appareils = () => {
+  const key = mkey(lastDate()), cur = monthAgg(key), [y,m]=key.split('-').map(Number), dim=daysIn(y,m);
+  const calc = d => d.w*d.h*dim/1000;
+  const total = devices.reduce((t,d)=>t+calc(d),0);
+  const measured = cur.n? cur.kwh/cur.n*dim : 0;
+  const rest = Math.max(0, measured-total);
+  const rows = devices.map((d,i)=>{ const k=calc(d), c=k*((1-d.hc/100)*settings.hp+d.hc/100*settings.hc);
+    return `<tr><td><input type="text" value="${esc(d.n)}" data-dev="${i}" data-f="n" style="width:130px"></td>
+    <td><input type="number" value="${d.w}" min="0" data-dev="${i}" data-f="w" style="width:70px"></td>
+    <td><input type="number" value="${d.h}" min="0" max="24" step="0.1" data-dev="${i}" data-f="h" style="width:60px"></td>
+    <td><input type="number" value="${d.hc}" min="0" max="100" data-dev="${i}" data-f="hc" style="width:60px"></td>
+    <td>${k.toFixed(1)}</td><td>${fmtE(c)}</td><td><button class="btn danger" data-deldev="${i}">✕</button></td></tr>`}).join('');
+  const pal=['#f59e0b','#2563eb','#16a34a','#dc2626','#9333ea','#0891b2','#db2777','#65a30d'];
+  const segs = devices.map((d,i)=>`<i style="width:${calc(d)/(measured||1)*100}%;background:${pal[i%8]}" title="${esc(d.n)}"></i>`).join('');
+  return `<div class="banner">Le Linky ne mesure que la consommation globale. Ici, ce sont des <b>estimations</b> (puissance × heures/jour) en attendant d'éventuelles prises connectées.</div>
+  <div class="card" style="overflow:auto"><h2>Appareils (estimation mensuelle ${fmtMois(key)})</h2>
+  <table><tr><th>Appareil</th><th>Watts</th><th>h/jour</th><th>% HC</th><th>kWh/mois</th><th>Coût</th><th></th></tr>${rows}</table>
+  <div class="row" style="margin-top:10px"><button class="btn" id="addDev">+ Ajouter un appareil</button></div>
+  <div class="bar">${segs}</div>
+  <div class="sub">Appareils : ${fmtK(total)} sur ${fmtK(measured)} projetés au compteur — reste non attribué : ${fmtK(rest)}</div></div>`;
+};
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+views.facture = () => {
+  const ks = monthsList(); if(!factMonth || !ks.includes(factMonth)) factMonth = ks[ks.length-1];
+  const a = monthAgg(factMonth), [y,m]=factMonth.split('-').map(Number), dim=daysIn(y,m);
+  const complete = a.n>=dim, f = dim/(a.n||1);
+  const hp = a.hp*f, hc = a.hc*f, total = hp*settings.hp+hc*settings.hc+settings.abo;
+  const p = monthAgg(prevKey(factMonth)); const ptot = p.n? cost(p.hp,p.hc)*(daysIn(...prevKey(factMonth).split('-').map(Number))/p.n)+settings.abo : 0;
+  const opts = ks.slice().reverse().map(k=>`<option value="${k}" ${k===factMonth?'selected':''}>${fmtMois(k)}</option>`).join('');
+  return `<div class="row"><select id="factSel">${opts}</select></div>
+  <div class="two"><div class="card"><h2>Facture estimée ${complete?'':'(projection fin de mois)'}</h2>
+  <table>
+  <tr><td>Heures pleines</td><td>${hp.toFixed(1)} kWh × ${settings.hp.toFixed(4)} €</td><td>${fmtE(hp*settings.hp)}</td></tr>
+  <tr><td>Heures creuses</td><td>${hc.toFixed(1)} kWh × ${settings.hc.toFixed(4)} €</td><td>${fmtE(hc*settings.hc)}</td></tr>
+  <tr><td>Abonnement</td><td>1 mois</td><td>${fmtE(settings.abo)}</td></tr>
+  <tr><td><b>Total TTC estimé</b></td><td></td><td><b>${fmtE(total)}</b></td></tr></table>
+  <div class="sub">Calcul : (kWh HP × tarif HP) + (kWh HC × tarif HC) + abonnement. Tarifs à ajuster dans Réglages.</div></div>
+  <div class="card"><h2>Comparaison</h2><div class="big">${ptot? delta(total,ptot):'—'}</div>
+  <div class="sub">${ptot? 'vs '+fmtMois(prevKey(factMonth))+' ('+fmtE(ptot)+')':'Pas de mois précédent'}</div>
+  <div class="sub">Moyenne : ${fmtE(total/dim)} / jour</div></div></div>`;
+};
+
+views.reglages = () => `
+  <div class="card"><h2>Contrat Heures Pleines / Heures Creuses</h2>
+  <div class="form">
+    ${fld('hp','Prix kWh HP (€ TTC)',settings.hp,0.0001)}
+    ${fld('hc','Prix kWh HC (€ TTC)',settings.hc,0.0001)}
+    ${fld('abo','Abonnement (€ TTC / mois)',settings.abo,0.01)}
+    ${fld('hcStart','Début heures creuses (h)',settings.hcStart,1)}
+    ${fld('hcEnd','Fin heures creuses (h)',settings.hcEnd,1)}
+    ${fld('hcRatio','Part HC si relevé journalier simple (%)',settings.hcRatio,1)}
+  </div><div class="note" style="margin-top:8px">Valeurs par défaut indicatives : remplace-les par celles de ta facture (prix TTC).</div></div>
+  <div class="card" style="margin-top:12px"><h2>Importer mes données Linky</h2>
+  <p class="note" style="margin-top:0">Formats acceptés : <b>CSV</b> <code>date;hp;hc</code> (kWh, ex. <code>2026-11-14;5,2;3,1</code>) · <b>JSON Conso API</b> (<code>daily_consumption</code> ou <code>consumption_load_curve</code>, en Wh) · CSV <code>date;valeur</code> (Wh, courbe de charge ou journalier).</p>
+  <div class="row"><input type="file" id="file" accept=".csv,.txt,.json"><button class="btn primary" id="imp">Importer</button>
+  <button class="btn" id="exp">Exporter (CSV)</button><button class="btn danger" id="reset">Revenir à la démo</button></div>
+  <div class="note" id="impMsg"></div></div>
+  <div class="card" style="margin-top:12px"><h2>Brancher le vrai Linky (gratuit)</h2>
+  <ol class="note" style="margin:0;padding-left:18px">
+   <li>Active la collecte de la consommation horaire dans ton espace client Enedis.</li>
+   <li>Autorise le partage sur <b>conso.boris.sh</b> et récupère ton jeton.</li>
+   <li>Télécharge le JSON (<code>daily_consumption</code> ou <code>consumption_load_curve</code>) puis importe-le ici.</li>
+   <li>Plus tard : Home Assistant pour l'automatisation, et des prises mesurantes pour les appareils.</li></ol></div>`;
+const fld = (id,l,v,st)=>`<label class="f">${l}<input type="number" step="${st}" value="${v}" data-set="${id}"></label>`;
+
+/* ---------- Import ---------- */
+function isHC(h){ const a=settings.hcStart,b=settings.hcEnd; return a>b ? (h>=a||h<b) : (h>=a&&h<b); }
+function importText(txt){
+  const out = {}; let count = 0;
+  const add = (d,hp,hc)=>{ out[d]=out[d]||{hp:0,hc:0}; out[d].hp+=hp; out[d].hc+=hc; count++; };
+  const num = s => parseFloat(String(s).replace(',','.'));
+  const point = (ts,wh,stepMin) => {   // wh en Wh pour l'intervalle
+    const m = ts.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2}))?/); if(!m) return;
+    const kwh = wh/1000;
+    if (m[2]===undefined){ const hc=kwh*settings.hcRatio/100; add(m[1],kwh-hc,hc); }
+    else { // l'horodatage Enedis marque la fin de l'intervalle : on prend le début
+      const t = parseInt(m[2])*60+parseInt(m[3]) - (stepMin||30); const h = Math.floor(((t%1440)+1440)%1440/60);
+      isHC(h) ? add(m[1],0,kwh) : add(m[1],kwh,0);
+    }
+  };
+  txt = txt.trim();
+  if (txt[0]==='{' || txt[0]==='['){
+    const j = JSON.parse(txt); const arr = (j.meter_reading&&j.meter_reading.interval_reading) || j.interval_reading || (Array.isArray(j)?j:[]);
+    const step = j.meter_reading&&j.meter_reading.reading_type&&parseInt(j.meter_reading.reading_type.interval_length)||(arr[1]&&arr[0].date&&arr[0].date.length>10?30:0);
+    arr.forEach(p=>point(p.date||p.horodate||'', num(p.value||p.valeur), step));
+  } else {
+    txt.split(/\r?\n/).forEach(line=>{
+      const cells = (line.includes(';')?line.split(';'):line.split(',')).map(s=>s.trim());
+      if (!/^\d{4}-\d{2}-\d{2}/.test(cells[0])) return;
+      if (cells.length>=3 && !isNaN(num(cells[1])) && !isNaN(num(cells[2])) && cells[0].length===10) add(cells[0],num(cells[1]),num(cells[2]));
+      else if (!isNaN(num(cells[1]))) point(cells[0],num(cells[1]),30);
+    });
+  }
+  for (const k in out){ out[k].hp=+out[k].hp.toFixed(3); out[k].hc=+out[k].hc.toFixed(3); }
+  return {out,count};
+}
+
+/* ---------- Rendu ---------- */
+const TABS = [['accueil','Vue générale'],['hphc','HP / HC'],['historique','Historique'],['appareils','Appareils'],['facture','Facture'],['reglages','Réglages']];
+function render(){
+  if (!views[tab]) tab='accueil';
+  document.getElementById('tabs').innerHTML = TABS.map(([id,l])=>`<button class="${id===tab?'on':''}" data-tab="${id}">${l}</button>`).join('');
+  const banner = demo && tab!=='reglages' ? `<div class="banner">🧪 <b>Données de démonstration.</b> Importe tes relevés Linky dans <a href="#reglages">Réglages</a> pour voir tes vrais chiffres.</div>`:'';
+  document.getElementById('view').innerHTML = banner + views[tab]();
+  window.scrollTo(0,0);
+}
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-tab]'); if (t){ tab=t.dataset.tab; location.hash=tab; return; }
+  const h = e.target.closest('[data-hist]'); if (h){ histMode=h.dataset.hist; render(); return; }
+  if (e.target.id==='addDev'){ devices.push({n:'Nouvel appareil',w:100,h:1,hc:0}); LS.set('eh_devices',devices); render(); }
+  const dd = e.target.closest('[data-deldev]'); if (dd){ devices.splice(+dd.dataset.deldev,1); LS.set('eh_devices',devices); render(); }
+  if (e.target.id==='themeBtn'){ const r=document.documentElement; const dark = r.dataset.theme==='dark' || (!r.dataset.theme && matchMedia('(prefers-color-scheme:dark)').matches); r.dataset.theme = dark?'light':'dark'; LS.set('eh_theme', r.dataset.theme); }
+  if (e.target.id==='imp'){
+    const f = document.getElementById('file').files[0], msg=document.getElementById('impMsg');
+    if(!f){ msg.textContent='Choisis d\'abord un fichier.'; return; }
+    f.text().then(txt=>{ try{
+      const {out,count}=importText(txt); if(!count){ msg.textContent='Aucune donnée reconnue dans ce fichier.'; return; }
+      if (demo){ data={}; demo=false; } Object.assign(data,out); persist(); msg.textContent=`✅ ${Object.keys(out).length} jours importés.`; setTimeout(()=>{tab='accueil';location.hash='accueil';},900);
+    }catch(err){ msg.textContent='Erreur de lecture : '+err.message; } });
+  }
+  if (e.target.id==='exp'){
+    const csv = 'date;hp;hc\n'+Object.keys(data).sort().map(k=>`${k};${data[k].hp};${data[k].hc}`).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='energy-home.csv'; a.click();
+  }
+  if (e.target.id==='reset'){ if(confirm('Effacer tes données et revenir à la démo ?')){ data=genDemo(); demo=true; persist(); render(); } }
+});
+document.addEventListener('change', e=>{
+  const s = e.target.dataset.set; if (s){ const v=parseFloat(e.target.value); if(!isNaN(v)){ settings[s]=v; LS.set('eh_settings',settings); } return; }
+  const di = e.target.dataset.dev; if (di!==undefined){ const f=e.target.dataset.f; devices[+di][f]= f==='n'?e.target.value:(parseFloat(e.target.value)||0); LS.set('eh_devices',devices); render(); return; }
+  if (e.target.id==='factSel'){ factMonth=e.target.value; render(); }
+});
+addEventListener('hashchange', ()=>{ tab=(location.hash||'#accueil').slice(1); render(); });
+const th = LS.get('eh_theme',null); if (th) document.documentElement.dataset.theme = th;
+render();
+</script>
+</body>
+</html>
